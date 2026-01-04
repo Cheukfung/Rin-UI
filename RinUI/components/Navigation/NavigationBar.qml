@@ -25,6 +25,7 @@ Item {
     property var stackView: parent.stackView
 
     property string currentPage: ""  // 当前页面的URL
+    property bool collapsedByAutoResize: false
 
     function isNotOverMinimumWidth() {  // 判断窗口是否小于最小宽度
         return windowWidth < minimumExpandWidth;
@@ -36,13 +37,13 @@ Item {
 
     Behavior on width {
         NumberAnimation {
-            duration: Utils.animationSpeedFasterer
+            duration: Utils.animationSpeed
             easing.type: Easing.OutQuint
         }
     }
     Behavior on implicitWidth {
         NumberAnimation {
-            duration: Utils.animationSpeedFaster
+            duration: Utils.animationSpeed
             easing.type: Easing.OutQuint
         }
     }
@@ -51,12 +52,12 @@ Item {
         id: background
         anchors.fill: parent
         anchors.margins: -5
-        anchors.topMargin: -title.height
+        anchors.topMargin: 0
         radius: Theme.currentTheme.appearance.windowRadius
         color: Theme.currentTheme.colors.backgroundAcrylicColor
         border.color: Theme.currentTheme.colors.flyoutBorderColor
         z: -1
-        visible: isNotOverMinimumWidth() && !collapsed ? 1 : 0
+        visible: isNotOverMinimumWidth() && !collapsed
 
         Behavior on visible {
             NumberAnimation {
@@ -124,9 +125,11 @@ Item {
         // icon.name: collapsed ? "ic_fluent_chevron_right_20_regular" : "ic_fluent_chevron_left_20_regular"
         icon.name: "ic_fluent_navigation_20_regular"
         size: 19
+        y: 5
 
         onClicked: {
             collapsed = !collapsed
+            collapsedByAutoResize = false
         }
 
         ToolTip {
@@ -140,7 +143,7 @@ Item {
     Flickable {
         id: flickable
         anchors.fill: parent
-        anchors.topMargin: 40
+        anchors.topMargin: 40 + collapseButton.y
         contentWidth: parent.width
         contentHeight: navigationColumn.implicitHeight
         clip: true

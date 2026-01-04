@@ -34,7 +34,26 @@ RowLayout {
     Connections {
         target: window
         function onWidthChanged() {
-            navigationBar.collapsed = navigationBar.isNotOverMinimumWidth()  // 判断窗口是否小于最小宽度
+            if (navigationBar.isNotOverMinimumWidth()) {
+                if (!navigationBar.collapsed) {
+                    navigationBar.collapsed = true
+                    navigationBar.collapsedByAutoResize = true
+                }
+            } else {
+                if (navigationBar.collapsed && navigationBar.collapsedByAutoResize) {
+                    navigationBar.collapsed = false
+                    navigationBar.collapsedByAutoResize = false
+                }
+            }
+        }
+    }
+
+    Component.onCompleted: {
+        if (navigationBar.isNotOverMinimumWidth()) {
+            if (!navigationBar.collapsed) {
+                navigationBar.collapsed = true
+                navigationBar.collapsedByAutoResize = true
+            }
         }
     }
 
@@ -65,6 +84,7 @@ RowLayout {
 
             onClicked: {
                 navigationBar.collapsed = true
+                navigationBar.collapsedByAutoResize = false
             }
         }
 
