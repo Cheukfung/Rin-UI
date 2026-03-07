@@ -22,7 +22,7 @@ SpinBox {
         inputMethodHints: Qt.ImhFormattedNumbersOnly
     }
 
-    implicitWidth: Math.max(implicitWidth + upBtn.width + downBtn.width + 8, 124)
+    implicitWidth: Math.max(contentItem.implicitWidth + upBtn.width + downBtn.width + 8, 124)
 
     // 背景 / Background //
     background: Rectangle {
@@ -75,7 +75,10 @@ SpinBox {
         size: 16
         color: Theme.currentTheme.colors.textSecondaryColor
         hoverable: editable
-        onClicked: increase()
+        onClicked: {
+            valueModified()
+            increase()
+        }
     }
 
     down.indicator: ToolButton {
@@ -94,7 +97,10 @@ SpinBox {
         size: 16
         color: Theme.currentTheme.colors.textSecondaryColor
         hoverable: editable
-        onClicked: decrease()
+        onClicked: {
+            decrease()
+            valueModified()
+        }
     }
 
     leftPadding: 12
@@ -114,8 +120,10 @@ SpinBox {
             }
             if (event.angleDelta.y > 0) {
                 root.value += root.stepSize;
+                valueModified()
             } else if (event.angleDelta.y < 0) {
                 root.value -= root.stepSize;
+                valueModified()
             }
             event.accepted = true; // 阻止事件继续冒泡
         }
