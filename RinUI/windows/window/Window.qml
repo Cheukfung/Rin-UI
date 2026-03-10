@@ -7,12 +7,31 @@ import "../../utils"
 
 Window {
     id: baseWindow
-    flags: Qt.FramelessWindowHint | Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint
+    property bool isMacOS: Qt.platform.os === "osx" || Qt.platform.os === "macos" || Qt.platform.os === "darwin"
+    // Native traffic lights + single custom titlebar integration on macOS.
+    property bool useNativeMacFrame: isMacOS
+    // Fine-tune custom title content baseline to match native traffic lights.
+    property int macNativeContentVerticalOffset: useNativeMacFrame ? -2 : 0
+    property int expandedClientAreaHint: typeof Qt.ExpandedClientAreaHint !== "undefined"
+        ? Qt.ExpandedClientAreaHint
+        : 0
+    flags: (useNativeMacFrame
+        ? (Qt.Window
+            | Qt.CustomizeWindowHint
+            | Qt.WindowTitleHint
+            | Qt.WindowSystemMenuHint
+            | expandedClientAreaHint
+            | Qt.NoTitleBarBackgroundHint)
+        : (Qt.FramelessWindowHint | Qt.Window))
+        | Qt.WindowMinimizeButtonHint
+        | Qt.WindowMaximizeButtonHint
+        | Qt.WindowCloseButtonHint
 
-    color: "transparent"
+    color: useNativeMacFrame ? Theme.currentTheme.colors.backgroundColor : "transparent"
     default property alias content: contentArea.data
     property int titleBarHeight: Theme.currentTheme.appearance.dialogTitleBarHeight
     property alias titleBarArea: titleBar.content
+    property alias titleBarHost: titleBar.contentHost
     property alias titleEnabled: titleBar.titleEnabled
     property alias minimizeEnabled: titleBar.minimizeEnabled
     // property alias maximizeEnabled: titleBar.maximizeEnabled
@@ -27,9 +46,9 @@ Window {
     // 布局
     ColumnLayout {
         anchors.fill: parent
-        anchors.bottomMargin: Utils.windowDragArea
-        anchors.leftMargin: Utils.windowDragArea
-        anchors.rightMargin: Utils.windowDragArea
+        anchors.bottomMargin: baseWindow.useNativeMacFrame ? 0 : Utils.windowDragArea
+        anchors.leftMargin: baseWindow.useNativeMacFrame ? 0 : Utils.windowDragArea
+        anchors.rightMargin: baseWindow.useNativeMacFrame ? 0 : Utils.windowDragArea
         spacing: 0
 
         // 顶部边距
@@ -58,6 +77,7 @@ Window {
         window: baseWindow
         icon: baseWindow.icon || ""
         title: baseWindow.title || ""
+        useNativeMacControls: baseWindow.useNativeMacFrame
         Layout.fillWidth: true
         height: baseWindow.titleBarHeight
 
@@ -69,6 +89,8 @@ Window {
         anchors.fill: parent
         color: Utils.backdropEnabled ? "transparent" : Theme.currentTheme.colors.backgroundColor
         border.color: Theme.currentTheme.colors.windowBorderColor
+        border.width: baseWindow.useNativeMacFrame ? 0 : 1
+        radius: baseWindow.useNativeMacFrame ? 0 : Theme.currentTheme.appearance.windowRadius
         z: -1
         clip: true
 
@@ -88,9 +110,12 @@ Window {
     //改变鼠标形状
     MouseArea {
         anchors.fill: parent
-        hoverEnabled: baseWindow.visibility !== Window.Maximized
+        hoverEnabled: !baseWindow.useNativeMacFrame && baseWindow.visibility !== Window.Maximized
         z: -1
         cursorShape: {
+            if (baseWindow.useNativeMacFrame || baseWindow.visibility === Window.Maximized) {
+                return Qt.ArrowCursor
+            }
             const p = Qt.point(mouseX, mouseY)
             const b = Utils.windowDragArea
             if (p.x < b && p.y < b) return Qt.SizeFDiagCursor
@@ -99,9 +124,7 @@ Window {
             if (p.x < b && p.y >= height - b) return Qt.SizeBDiagCursor
             if (p.x < b || p.x >= width - b) return Qt.SizeHorCursor
             if (p.y < b || p.y >= height - b) return Qt.SizeVerCursor
-        }
-        Component.onCompleted: {
-            cursorShape = Qt.ArrowCursor
+            return Qt.ArrowCursor
         }
         acceptedButtons: Qt.NoButton
     }

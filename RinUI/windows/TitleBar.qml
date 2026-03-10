@@ -19,13 +19,46 @@ Item {
     property bool minimizeEnabled: true
     property bool maximizeEnabled: true
     property bool closeEnabled: true
+    // Keep macOS detection resilient across Qt variants.
+    property bool isMacOS: Qt.platform.os === "osx" || Qt.platform.os === "macos" || Qt.platform.os === "darwin"
+    property bool useNativeMacControls: false
+    property bool showMacCustomControls: root.isMacOS && !root.useNativeMacControls
+    property int macControlSize: 12
+    property int macControlSpacing: 8
+    property int macControlLeftMargin: 20
+    property int macDragGap: 12
+    // Reserve a small leading no-drag zone for overlay actions (e.g. NavigationView back button).
+    property int macLeadingInteractiveWidth: 40
+    // Align custom title content with native traffic lights on macOS.
+    property real macNativeContentVerticalOffset: root.isMacOS && root.useNativeMacControls
+        ? ((root.window && root.window.macNativeContentVerticalOffset !== undefined)
+            ? root.window.macNativeContentVerticalOffset
+            : -2)
+        : 0
+    property int macNativeControlCount: root.isMacOS && root.useNativeMacControls ? 3 : 0
+    property int macVisibleControlCount: root.showMacCustomControls
+        ? (closeVisible ? 1 : 0) + (minimizeVisible ? 1 : 0) + (maximizeVisible ? 1 : 0)
+        : 0
+    property int macControlOccupyCount: macVisibleControlCount > 0 ? macVisibleControlCount : macNativeControlCount
+    property int macControlGroupWidth: macVisibleControlCount > 0
+        ? (macVisibleControlCount * macControlSize) + ((macVisibleControlCount - 1) * macControlSpacing)
+        : 0
+    property int macLeadingInset: root.isMacOS && macControlOccupyCount > 0
+        ? root.macControlLeftMargin + (macControlOccupyCount * root.macControlSize) + ((macControlOccupyCount - 1) * root.macControlSpacing) + root.macDragGap
+        : 0
+    property bool macControlsHovered: root.showMacCustomControls && (
+        (macCloseBtn.visible && (macCloseBtn.localHovered || macCloseBtn.localPressed)) ||
+        (macMinimizeBtn.visible && (macMinimizeBtn.localHovered || macMinimizeBtn.localPressed)) ||
+        (macMaximizeBtn.visible && (macMaximizeBtn.localHovered || macMaximizeBtn.localPressed))
+    )
 
-    property alias minimizeVisible: minimizeBtn.visible
-    property alias maximizeVisible: maximizeBtn.visible
-    property alias closeVisible: closeBtn.visible
+    property bool minimizeVisible: true
+    property bool maximizeVisible: true
+    property bool closeVisible: true
 
     // area
     default property alias content: contentItem.data
+    property alias contentHost: contentItem
 
 
     height: titleBarHeight
@@ -51,8 +84,11 @@ Item {
         color: "transparent"
 
         MouseArea {
+            enabled: !root.useNativeMacControls
             anchors.fill: parent
-            anchors.leftMargin: 48
+            anchors.leftMargin: root.isMacOS
+                ? root.macLeadingInset + root.macLeadingInteractiveWidth
+                : 48
             anchors.margins: Utils.windowDragArea
             propagateComposedEvents: true
             acceptedButtons: Qt.LeftButton
@@ -87,18 +123,60 @@ Item {
     }
 
     RowLayout {
-        anchors.fill: parent
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.verticalCenterOffset: root.macNativeContentVerticalOffset
+        height: parent.height
         anchors.margins: 0
-        spacing: 48
+        spacing: root.isMacOS ? (root.showMacCustomControls ? 12 : 0) : 48
+
+        // macOS traffic-light controls stay on the left side of the title.
+        Row {
+            id: macWindowControls
+            visible: root.showMacCustomControls
+            Layout.alignment: Qt.AlignVCenter
+            Layout.leftMargin: root.macControlLeftMargin
+            spacing: root.macControlSpacing
+
+            CtrlBtn {
+                id: macCloseBtn
+                mode: 2
+                width: root.macControlSize
+                height: root.macControlSize
+                enabled: root.closeEnabled
+                visible: root.closeVisible
+                macGroupHovered: root.macControlsHovered
+            }
+            CtrlBtn {
+                id: macMinimizeBtn
+                mode: 1
+                width: root.macControlSize
+                height: root.macControlSize
+                enabled: root.minimizeEnabled
+                visible: root.minimizeVisible
+                macGroupHovered: root.macControlsHovered
+            }
+            CtrlBtn {
+                id: macMaximizeBtn
+                mode: 0
+                width: root.macControlSize
+                height: root.macControlSize
+                enabled: root.maximizeEnabled
+                visible: root.maximizeVisible
+                macGroupHovered: root.macControlsHovered
+
+            }
+        }
         // 窗口标题 / Window Title
 
         RowLayout {
             id: titleRow
+            visible: root.titleEnabled
             Layout.fillHeight: true
             Layout.fillWidth: true
-            Layout.leftMargin: 16
+            Layout.leftMargin: root.isMacOS ? (root.useNativeMacControls ? root.macLeadingInset : 0) : 16
             spacing: 16
-            opacity: root.titleEnabled
 
             //图标
             IconWidget {
@@ -130,6 +208,8 @@ Item {
 
         // 窗口按钮 / Window Controls
         Row {
+            id: windowControls
+            visible: !root.isMacOS
             width: implicitWidth
             Layout.fillHeight: true
             Layout.alignment: Qt.AlignRight
@@ -138,17 +218,20 @@ Item {
                 id: minimizeBtn
                 mode: 1
                 enabled: root.minimizeEnabled
+                visible: root.minimizeVisible
             }
             CtrlBtn {
                 id: maximizeBtn
                 mode: 0
                 enabled: root.maximizeEnabled
+                visible: root.maximizeVisible
 
             }
             CtrlBtn {
                 id: closeBtn
                 mode: 2
                 enabled: root.closeEnabled
+                visible: root.closeVisible
             }
         }
     }

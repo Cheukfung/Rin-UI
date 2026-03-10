@@ -14,9 +14,28 @@ ApplicationWindow {
     // minimumHeight: 300
     property int hwnd: 0
     property bool isRinUIWindow: true
+    property bool isMacOS: Qt.platform.os === "osx" || Qt.platform.os === "macos" || Qt.platform.os === "darwin"
+    // Native traffic lights + single custom titlebar integration on macOS.
+    property bool useNativeMacFrame: isMacOS
+    // Fine-tune custom title content baseline to match native traffic lights.
+    property int macNativeContentVerticalOffset: useNativeMacFrame ? -2 : 0
+    property int expandedClientAreaHint: typeof Qt.ExpandedClientAreaHint !== "undefined"
+        ? Qt.ExpandedClientAreaHint
+        : 0
 
-    flags: Qt.FramelessWindowHint | Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint
-    color: "transparent"
+    flags: (useNativeMacFrame
+        ? (Qt.Window
+            | Qt.CustomizeWindowHint
+            | Qt.WindowTitleHint
+            | Qt.WindowSystemMenuHint
+            | expandedClientAreaHint
+            | Qt.NoTitleBarBackgroundHint)
+        : (Qt.FramelessWindowHint | Qt.Window))
+        | Qt.WindowMinimizeButtonHint
+        | Qt.WindowMaximizeButtonHint
+        | Qt.WindowCloseButtonHint
+    color: useNativeMacFrame ? Theme.currentTheme.colors.backgroundColor : "transparent"
+    topPadding: 0
 
     // 自定义属性
     property var icon: ""  // 图标
@@ -32,6 +51,7 @@ ApplicationWindow {
 
     property int titleBarHeight: Theme.currentTheme.appearance.dialogTitleBarHeight
     property alias titleBarArea: titleBar.content
+    property alias titleBarHost: titleBar.contentHost
 
 
     // 直接添加子项
@@ -41,6 +61,11 @@ ApplicationWindow {
 
     // 最大化样式
     onVisibilityChanged: {
+        if (baseWindow.useNativeMacFrame) {
+            background.radius = 0
+            background.border.width = 0
+            return
+        }
         if (baseWindow.visibility === Window.Maximized) {
             background.radius = 0
             background.border.width = 1
@@ -54,9 +79,9 @@ ApplicationWindow {
     ColumnLayout {
         anchors.fill: parent
         // anchors.topMargin: Utils.windowDragArea
-        anchors.bottomMargin: Utils.windowDragArea
-        anchors.leftMargin: Utils.windowDragArea
-        anchors.rightMargin: Utils.windowDragArea
+        anchors.bottomMargin: baseWindow.useNativeMacFrame ? 0 : Utils.windowDragArea
+        anchors.leftMargin: baseWindow.useNativeMacFrame ? 0 : Utils.windowDragArea
+        anchors.rightMargin: baseWindow.useNativeMacFrame ? 0 : Utils.windowDragArea
         spacing: 0
 
         // 顶部边距
@@ -85,6 +110,7 @@ ApplicationWindow {
         window: baseWindow
         icon: baseWindow.icon || ""
         title: baseWindow.title || ""
+        useNativeMacControls: baseWindow.useNativeMacFrame
         Layout.fillWidth: true
         height: baseWindow.titleBarHeight
 
@@ -99,8 +125,8 @@ ApplicationWindow {
         color: Utils.backdropEnabled ? "transparent" : Theme.currentTheme.colors.backgroundColor
         border.color: Theme.currentTheme.colors.windowBorderColor
         layer.enabled: true  // 启用透明渲染
-        border.width: 1
-        radius: Theme.currentTheme.appearance.windowRadius
+        border.width: baseWindow.useNativeMacFrame ? 0 : 1
+        radius: baseWindow.useNativeMacFrame ? 0 : Theme.currentTheme.appearance.windowRadius
         z: -1
         clip: true
 
@@ -129,9 +155,12 @@ ApplicationWindow {
     //改变鼠标形状
     MouseArea {
         anchors.fill: parent
-        hoverEnabled: baseWindow.visibility !== Window.Maximized
+        hoverEnabled: !baseWindow.useNativeMacFrame && baseWindow.visibility !== Window.Maximized
         z: -1
         cursorShape: {
+            if (baseWindow.useNativeMacFrame || baseWindow.visibility === Window.Maximized) {
+                return Qt.ArrowCursor
+            }
             const p = Qt.point(mouseX, mouseY)
             const b = Utils.windowDragArea
             if (p.x < b && p.y < b) return Qt.SizeFDiagCursor
@@ -140,6 +169,7 @@ ApplicationWindow {
             if (p.x < b && p.y >= height - b) return Qt.SizeBDiagCursor
             if (p.x < b || p.x >= width - b) return Qt.SizeHorCursor
             if (p.y < b || p.y >= height - b) return Qt.SizeVerCursor
+            return Qt.ArrowCursor
         }
         acceptedButtons: Qt.NoButton
     }
@@ -148,7 +178,7 @@ ApplicationWindow {
         id: resizeHandler
         grabPermissions: TapHandler.TakeOverForbidden
         target: null
-        enabled: Qt.platform.os !== "windows"
+        enabled: !baseWindow.useNativeMacFrame && Qt.platform.os !== "windows"
         onActiveChanged: if (active && baseWindow.visibility !== Window.Maximized) {
             const p = resizeHandler.centroid.position
             const b = Utils.windowDragArea
